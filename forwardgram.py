@@ -1,5 +1,5 @@
 from telethon import TelegramClient, events, sync
-from telethon.tl.types import InputChannel
+from telethon.tl.types import InputChannel, Channel, Dialog, InputUser, User, Chat
 import yaml
 import sys
 import logging
@@ -15,25 +15,27 @@ def start(config):
                             config["api_hash"])
     client.start()
 
-    input_channels_entities = []
+    input_entities = []
     output_channel_entities = []
     for d in client.iter_dialogs():
-        if d.name in config["input_channel_names"]:
-            input_channels_entities.append(InputChannel(d.entity.id, d.entity.access_hash))
-        if d.name in config["output_channel_names"]:
+        if 'User' == type(d.entity).__name__ and d.entity.username in config["input_user_usernames"]:
+            input_entities.append(InputUser(d.entity.id, d.entity.access_hash))
+        if 'Channel' == type(d.entity).__name__ and d.name in config["input_channel_names"]:
+            input_entities.append(InputChannel(d.entity.id, d.entity.access_hash))
+        if 'Channel' == type(d.entity).__name__ and d.name in config["output_channel_names"]:
             output_channel_entities.append(InputChannel(d.entity.id, d.entity.access_hash))
             
     if not output_channel_entities:
         logger.error(f"Could not find any output channels in the user's dialogs")
         sys.exit(1)
 
-    if not input_channels_entities:
-        logger.error(f"Could not find any input channels in the user's dialogs")
+    if not input_entities:
+        logger.error(f"Could not find any input channels or users in the user's dialogs")
         sys.exit(1)
         
-    logging.info(f"Listening on {len(input_channels_entities)} channels. Forwarding messages to {len(output_channel_entities)} channels.")
+    logging.info(f"Listening on {len(input_entities)} input channels/users. Forwarding messages to {len(output_channel_entities)} channels.")
     
-    @client.on(events.NewMessage(chats=input_channels_entities))
+    @client.on(events.NewMessage(chats=input_entities))
     async def handler(event):
         for output_channel in output_channel_entities:
             await client.forward_messages(output_channel, event.message)
