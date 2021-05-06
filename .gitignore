@@ -6,3 +6,6 @@ __pycache__
 config.yml
 *.session
 *.session-journal
+*.log
+config*.yml
+.python*
